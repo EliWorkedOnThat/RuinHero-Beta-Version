@@ -1,9 +1,10 @@
 #Imports
 import tkinter as tk
+from Maps import basic_map
 
 #Calculate Tile Grid and Size
 WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_HEIGHT = 672
 TILE_SIZE = 32
 
 COLS = WINDOW_WIDTH // TILE_SIZE
@@ -26,13 +27,7 @@ canvas = tk.Canvas(
 canvas.pack()
 
 #Mapping Tiles
-map_data = [
-    [1,1,2,1,2,2],
-    [2,0,0,0,1,2],
-    [1,0,3,0,1,2],
-    [2,0,0,4,0,2],
-    [1,1,1,1,1,1],
-]
+map_data = basic_map
 
 #Corresponding Tile to ID
 
@@ -42,7 +37,8 @@ tile_images = {
     2: tk.PhotoImage(file="TexturePack/Basic Tiles/Stone.png"),
     3: tk.PhotoImage(file = "TexturePack/Ores/Diamond.png"),
     4: tk.PhotoImage(file = "TexturePack/Ores/Gold.png"),
-    5: tk.PhotoImage(file = "TexturePack/Ores/Ruby.png")
+    5: tk.PhotoImage(file = "TexturePack/Ores/Ruby.png"),
+    6: tk.PhotoImage(file = "TexturePack/Basic Tiles/Sand.png")
 }
 
 #Draw Temporary Grid
@@ -52,6 +48,7 @@ def draw_grid():
     for y in range(0, WINDOW_HEIGHT, TILE_SIZE):
         canvas.create_line(0, y, WINDOW_WIDTH, y, fill="#333")
 
+#Draw Map Function Based on Textures and Map Data
 def draw_map():
     canvas.delete("all")
     for row in range(len(map_data)):
@@ -64,7 +61,7 @@ def draw_map():
 
             canvas.create_image(x, y, anchor="nw", image=image)
 
-
+#Draw Map
 draw_map()
 
 #Main Loop
