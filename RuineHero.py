@@ -30,7 +30,6 @@ canvas.pack()
 map_data = basic_map
 
 #Corresponding Tile to ID
-
 tile_images = {
     0: tk.PhotoImage(file="TexturePack/Basic Tiles/Grass.png"),
     1: tk.PhotoImage(file="TexturePack/Basic Tiles/Water.png"),
@@ -40,6 +39,21 @@ tile_images = {
     5: tk.PhotoImage(file = "TexturePack/Ores/Ruby.png"),
     6: tk.PhotoImage(file = "TexturePack/Basic Tiles/Sand.png")
 }
+
+player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
+player_x= 5
+player_y= 5
+player_sprite = None
+
+def draw_player():
+    global player_sprite
+    if player_sprite:
+        canvas.delete(player_sprite)
+    
+    # Draw player at current position
+    px = player_x * TILE_SIZE
+    py = player_y * TILE_SIZE
+    player_sprite = canvas.create_image(px, py, anchor="nw", image=player_image)
 
 #Draw Temporary Grid
 def draw_grid():
@@ -63,6 +77,7 @@ def draw_map():
 
 #Draw Map
 draw_map()
+draw_player()
 
 #Main Loop
 root.mainloop()
