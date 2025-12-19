@@ -37,7 +37,10 @@ tile_images = {
     3: tk.PhotoImage(file = "TexturePack/Ores/Diamond.png"),
     4: tk.PhotoImage(file = "TexturePack/Ores/Gold.png"),
     5: tk.PhotoImage(file = "TexturePack/Ores/Ruby.png"),
-    6: tk.PhotoImage(file = "TexturePack/Basic Tiles/Sand.png")
+    6: tk.PhotoImage(file = "TexturePack/Basic Tiles/Sand.png"),
+    7: tk.PhotoImage(file = "TexturePack/Basic Tiles/Bush.png"),
+    8: tk.PhotoImage(file = "TexturePack/Basic Tiles/Apple_Tree.png"),
+    9: tk.PhotoImage(file = "TexturePack/Basic Tiles/Orange_Tree.png")
 }
 
 player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
