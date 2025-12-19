@@ -44,13 +44,32 @@ tile_images = {
 }
 
 player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
+enemy_image = tk.PhotoImage(file = "TexturePack/Enemies/Ghost_GIF.gif")
 
 # Player position - now in PIXELS instead of grid
 player_pixel_x = 5 * TILE_SIZE  # Start at grid (5, 5) = pixel (160, 160)
-player_pixel_y = 5 * TILE_SIZE
+player_pixel_y = 10 * TILE_SIZE
 target_pixel_x = player_pixel_x  # Where we're moving TO
 target_pixel_y = player_pixel_y
 player_sprite = None
+
+#Enemy Positioning and Image
+enemy_sprite = None
+enemy_pixel_x = 15 * TILE_SIZE
+enemy_pixel_y = 10 * TILE_SIZE
+
+#Function to Draw Enemy
+def draw_enemy():
+    global enemy_sprite
+    if enemy_sprite:
+        canvas.delete(enemy_sprite)
+
+    enemy_sprite = canvas.create_image(
+        enemy_pixel_x,
+        enemy_pixel_y,
+        anchor="nw",
+        image=enemy_image
+    )
 
 # Movement settings
 is_moving = False  # Is the player currently animating?
@@ -101,6 +120,7 @@ def update_player():
         
         # Redraw player at new position
         draw_player()
+        draw_enemy()
     
     # Schedule next frame (~60 FPS = every 16 milliseconds)
     root.after(16, update_player)
@@ -168,6 +188,7 @@ root.bind("<KeyPress>", on_key_press)
 #Draw Map
 draw_map()
 draw_player()
+draw_enemy()
 
 # Start the animation loop
 update_player()
