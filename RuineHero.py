@@ -45,15 +45,42 @@ player_x= 5
 player_y= 5
 player_sprite = None
 
+#Function to Draw Player
 def draw_player():
     global player_sprite
     if player_sprite:
         canvas.delete(player_sprite)
-    
+        
     # Draw player at current position
     px = player_x * TILE_SIZE
     py = player_y * TILE_SIZE
     player_sprite = canvas.create_image(px, py, anchor="nw", image=player_image)
+
+#Function to Move Player
+def move_player(dx, dy):
+    global player_x , player_y
+    new_x = player_x + dx
+    new_y = player_y + dy
+
+    # Check boundaries
+    if 0 <= new_x < COLS and 0 <= new_y < ROWS:
+        player_x = new_x
+        player_y = new_y
+        draw_player()
+
+#Function to Handle Key Press and Movement Events
+def on_key_press(event):
+    key = event.keysym.lower()
+    
+    # WASD and Arrow key controls
+    if key == 'w' or key == 'up':
+        move_player(0, -1)  # Move up
+    elif key == 's' or key == 'down':
+        move_player(0, 1)   # Move down
+    elif key == 'a' or key == 'left':
+        move_player(-1, 0)  # Move left
+    elif key == 'd' or key == 'right':
+        move_player(1, 0)   # Move right
 
 #Draw Temporary Grid
 def draw_grid():
@@ -74,6 +101,9 @@ def draw_map():
             y = row * TILE_SIZE
 
             canvas.create_image(x, y, anchor="nw", image=image)
+
+# Bind keyboard input
+root.bind("<KeyPress>", on_key_press)
 
 #Draw Map
 draw_map()
