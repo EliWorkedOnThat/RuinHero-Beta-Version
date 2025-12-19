@@ -1,6 +1,8 @@
 #Imports
 import tkinter as tk
 from Maps import basic_map
+from playsound3 import playsound
+import threading
 
 #Calculate Tile Grid and Size
 WINDOW_WIDTH = 800
@@ -89,11 +91,21 @@ def draw_player():
         image=player_image
     )
 
+#Function to play SFX 
+def play_sfx(sound_file):
+    def play_in_thread():
+        sound_file = "SoundEffects/GrassWalkSFX.mp3"
+        playsound(sound_file)
+
+    thread = threading.Thread(target=play_in_thread, daemon=True)
+    thread.start()
+
 #Function to Update Player Animation
 def update_player():
     global player_pixel_x, player_pixel_y, is_moving
     
     if is_moving:
+
         # Move horizontally toward target
         if player_pixel_x < target_pixel_x:
             player_pixel_x += move_speed  # Move right
@@ -147,7 +159,8 @@ def move_player(dx, dy):
         target_pixel_x = new_grid_x * TILE_SIZE
         target_pixel_y = new_grid_y * TILE_SIZE
         is_moving = True  # Start the animation
-
+        play_sfx("SoundEffects/GrassWalkSFX.mp3") 
+        
 #Function to Handle Key Press and Movement Events
 def on_key_press(event):
     key = event.keysym.lower()
