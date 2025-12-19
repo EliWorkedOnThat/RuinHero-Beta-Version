@@ -41,32 +41,89 @@ tile_images = {
 }
 
 player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
-player_x= 5
-player_y= 5
+
+# Player position - now in PIXELS instead of grid
+player_pixel_x = 5 * TILE_SIZE  # Start at grid (5, 5) = pixel (160, 160)
+player_pixel_y = 5 * TILE_SIZE
+target_pixel_x = player_pixel_x  # Where we're moving TO
+target_pixel_y = player_pixel_y
 player_sprite = None
+
+# Movement settings
+is_moving = False  # Is the player currently animating?
+move_speed = 8  # Pixels per frame (32/8 = 4 frames to cross one tile)
 
 #Function to Draw Player
 def draw_player():
     global player_sprite
     if player_sprite:
         canvas.delete(player_sprite)
+    
+    # Draw player at current pixel position (not grid position!)
+    player_sprite = canvas.create_image(
+        player_pixel_x, 
+        player_pixel_y, 
+        anchor="nw", 
+        image=player_image
+    )
+
+#Function to Update Player Animation
+def update_player():
+    global player_pixel_x, player_pixel_y, is_moving
+    
+    if is_moving:
+        # Move horizontally toward target
+        if player_pixel_x < target_pixel_x:
+            player_pixel_x += move_speed  # Move right
+            if player_pixel_x > target_pixel_x:  # Don't overshoot
+                player_pixel_x = target_pixel_x
+        elif player_pixel_x > target_pixel_x:
+            player_pixel_x -= move_speed  # Move left
+            if player_pixel_x < target_pixel_x:  # Don't overshoot
+                player_pixel_x = target_pixel_x
         
-    # Draw player at current position
-    px = player_x * TILE_SIZE
-    py = player_y * TILE_SIZE
-    player_sprite = canvas.create_image(px, py, anchor="nw", image=player_image)
+        # Move vertically toward target
+        if player_pixel_y < target_pixel_y:
+            player_pixel_y += move_speed  # Move down
+            if player_pixel_y > target_pixel_y:  # Don't overshoot
+                player_pixel_y = target_pixel_y
+        elif player_pixel_y > target_pixel_y:
+            player_pixel_y -= move_speed  # Move up
+            if player_pixel_y < target_pixel_y:  # Don't overshoot
+                player_pixel_y = target_pixel_y
+        
+        # Check if we've reached the target
+        if player_pixel_x == target_pixel_x and player_pixel_y == target_pixel_y:
+            is_moving = False  # Stop animating
+        
+        # Redraw player at new position
+        draw_player()
+    
+    # Schedule next frame (~60 FPS = every 16 milliseconds)
+    root.after(16, update_player)
 
 #Function to Move Player
 def move_player(dx, dy):
-    global player_x , player_y
-    new_x = player_x + dx
-    new_y = player_y + dy
-
+    global target_pixel_x, target_pixel_y, is_moving
+    
+    # Don't allow new movement if already moving
+    if is_moving:
+        return
+    
+    # Calculate current grid position
+    current_grid_x = player_pixel_x // TILE_SIZE
+    current_grid_y = player_pixel_y // TILE_SIZE
+    
+    # Calculate new grid position
+    new_grid_x = current_grid_x + dx
+    new_grid_y = current_grid_y + dy
+    
     # Check boundaries
-    if 0 <= new_x < COLS and 0 <= new_y < ROWS:
-        player_x = new_x
-        player_y = new_y
-        draw_player()
+    if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
+        # Set the target position in pixels
+        target_pixel_x = new_grid_x * TILE_SIZE
+        target_pixel_y = new_grid_y * TILE_SIZE
+        is_moving = True  # Start the animation
 
 #Function to Handle Key Press and Movement Events
 def on_key_press(event):
@@ -108,6 +165,9 @@ root.bind("<KeyPress>", on_key_press)
 #Draw Map
 draw_map()
 draw_player()
+
+# Start the animation loop
+update_player()
 
 #Main Loop
 root.mainloop()
