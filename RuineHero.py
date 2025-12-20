@@ -172,7 +172,7 @@ def update_player():
 
 #Function to Move Player
 def move_player(dx, dy):
-    global target_pixel_x, target_pixel_y, is_moving
+    global target_pixel_x, target_pixel_y, is_moving , move_speed
     
     # Don't allow new movement if already moving
     if is_moving:
@@ -185,12 +185,18 @@ def move_player(dx, dy):
     # Calculate new grid position
     new_grid_x = current_grid_x + dx
     new_grid_y = current_grid_y + dy
-    
+
     # Check boundaries
     if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
         #Get the tile we're about to walk onto
         target_tile_id = map_data[new_grid_y][new_grid_x]
         
+        #Slow down on specific tiles
+        if target_tile_id == 6:
+            move_speed = 4  # Slower on sand
+        else:
+            move_speed = 8  # Normal speed
+
         #Get the appropriate sound for this tile
         sound_file = get_sound_for_tile(target_tile_id)
         
