@@ -12,6 +12,9 @@ TILE_SIZE = 32
 COLS = WINDOW_WIDTH // TILE_SIZE
 ROWS = WINDOW_HEIGHT // TILE_SIZE
 
+#Check if sound is playing
+is_sound_playing = False
+
 #Main Window
 root = tk.Tk()
 root.title("Ruine Hero")
@@ -93,10 +96,18 @@ def draw_player():
 
 #Function to play SFX 
 def play_sfx(sound_file):
+    global is_sound_playing
+    
+    # Don't play if already playing
+    if is_sound_playing:
+        return
+    
     def play_in_thread():
-        sound_file = "SoundEffects/GrassWalkSFX.mp3"
+        global is_sound_playing
+        is_sound_playing = True
         playsound(sound_file)
-
+        is_sound_playing = False  # Mark as finished
+    
     thread = threading.Thread(target=play_in_thread, daemon=True)
     thread.start()
 
