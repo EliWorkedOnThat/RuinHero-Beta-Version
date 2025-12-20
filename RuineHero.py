@@ -16,7 +16,10 @@ ROWS = WINDOW_HEIGHT // TILE_SIZE
 is_sound_playing = False
 
 #Non Walking Tiles
-NON_WALKABLE_TILES = [1 , 8 , 9]
+NON_WALKABLE_TILES = [1, 8, 9]
+
+#Money Counter
+player_money = 5000
 
 #Main Window
 root = tk.Tk()
@@ -58,21 +61,48 @@ tile_sounds = {
     6: "SoundEffects/SandWalkSFX.mp3"
 }
 
-#Load Player and Enemy Images
+#Load Images
 player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
 enemy_image = tk.PhotoImage(file = "TexturePack/Enemies/Ghost_GIF.gif")
+money_image = tk.PhotoImage(file = "TexturePack/Shootable/Money.png")
 
-# Player position - now in PIXELS instead of grid
-player_pixel_x = 5 * TILE_SIZE  # Start at grid (5, 5) = pixel (160, 160)
+# Player Stats
+player_pixel_x = 5 * TILE_SIZE
 player_pixel_y = 10 * TILE_SIZE
-target_pixel_x = player_pixel_x  # Where we're moving TO
+target_pixel_x = player_pixel_x
 target_pixel_y = player_pixel_y
 player_sprite = None
+player_facing = "right"  # Track which direction player is facing
+player_max_health = 100
+player_current_health = 100
 
-#Enemy Positioning and Image
+#Enemy Stats
 enemy_sprite = None
 enemy_pixel_x = 15 * TILE_SIZE
 enemy_pixel_y = 10 * TILE_SIZE
+enemy_max_health = 50
+enemy_current_health = 50
+
+# Projectile System
+projectiles = []  # List to store all active projectiles
+projectile_speed = 12  # Pixels per frame (faster than player)
+
+# Movement settings
+is_moving = False
+move_speed = 8
+
+#Function to Draw Player
+def draw_player():
+    global player_sprite
+    if player_sprite:
+        canvas.delete(player_sprite)
+    
+    player_sprite = canvas.create_image(
+        player_pixel_x, 
+        player_pixel_y, 
+        anchor="nw", 
+        image=player_image
+    )
 
 #Function to Draw Enemy
 def draw_enemy():
@@ -87,25 +117,7 @@ def draw_enemy():
         image=enemy_image
     )
 
-# Movement settings
-is_moving = False  # Is the player currently animating?
-move_speed = 8  # Pixels per frame (32/8 = 4 frames to cross one tile)
-
-#Function to Draw Player
-def draw_player():
-    global player_sprite
-    if player_sprite:
-        canvas.delete(player_sprite)
-    
-    # Draw player at current pixel position (not grid position!)
-    player_sprite = canvas.create_image(
-        player_pixel_x, 
-        player_pixel_y, 
-        anchor="nw", 
-        image=player_image
-    )
-
-#Function to get tile ID at player position
+#Function to get tile ID at position
 def get_tile_id_at_position(pixel_x, pixel_y):
     grid_x = pixel_x // TILE_SIZE
     grid_y = pixel_y // TILE_SIZE
@@ -113,7 +125,7 @@ def get_tile_id_at_position(pixel_x, pixel_y):
         # Check if position is within bounds
     if 0 <= grid_x < COLS and 0 <= grid_y < ROWS:
         return map_data[grid_y][grid_x]
-    return 0  # Default to grass if out of bounds
+    return 0
 
 #Function to get sound for current tile
 def get_sound_for_tile(tile_id):
@@ -123,7 +135,7 @@ def get_sound_for_tile(tile_id):
 def play_sfx(sound_file):
     global is_sound_playing
     
-    # Don't play if already playing
+    #Dont play if already playing
     if is_sound_playing:
         return
     
@@ -131,61 +143,147 @@ def play_sfx(sound_file):
         global is_sound_playing
         is_sound_playing = True
         playsound(sound_file)
-        is_sound_playing = False  # Mark as finished
+        is_sound_playing = False
     
     thread = threading.Thread(target=play_in_thread, daemon=True)
     thread.start()
+
+#Function to Shoot Money Projectile
+def shoot_money():
+    global player_money
+    
+    # Check if player has money
+    if player_money < 100:
+        print("Not enough money to shoot!")
+        return
+    
+    # Deduct money cost
+    player_money -= 100
+    print(f"Shot money! Remaining: ${player_money}")
+    
+    # Calculate starting position (center of player sprite)
+    start_x = player_pixel_x + TILE_SIZE // 2
+    start_y = player_pixel_y + TILE_SIZE // 2
+    
+    # Set direction based on which way player is facing
+    if player_facing == "up":
+        dx, dy = 0, -1
+    elif player_facing == "down":
+        dx, dy = 0, 1
+    elif player_facing == "left":
+        dx, dy = -1, 0
+    elif player_facing == "right":
+        dx, dy = 1, 0
+    else:
+        dx, dy = 1, 0  # Default to right
+    
+    # Create projectile sprite
+    projectile_sprite = canvas.create_image(
+        start_x,
+        start_y,
+        image=money_image
+    )
+    
+    # Add to projectiles list
+    projectile = {
+        'sprite': projectile_sprite,
+        'x': start_x,
+        'y': start_y,
+        'dx': dx,
+        'dy': dy
+    }
+    projectiles.append(projectile)
+
+#Function to Update Projectiles
+def update_projectiles():
+    global projectiles
+    
+    projectiles_to_remove = []
+    
+    for projectile in projectiles:
+        # Move projectile
+        projectile['x'] += projectile['dx'] * projectile_speed
+        projectile['y'] += projectile['dy'] * projectile_speed
+        
+        # Update sprite position
+        canvas.coords(
+            projectile['sprite'],
+            projectile['x'],
+            projectile['y']
+        )
+        
+        # Check if projectile is out of bounds
+        if (projectile['x'] < 0 or projectile['x'] > WINDOW_WIDTH or
+            projectile['y'] < 0 or projectile['y'] > WINDOW_HEIGHT):
+            # Mark for removal
+            projectiles_to_remove.append(projectile)
+    
+    # Remove out-of-bounds projectiles
+    for projectile in projectiles_to_remove:
+        canvas.delete(projectile['sprite'])
+        projectiles.remove(projectile)
 
 #Function to Update Player Animation
 def update_player():
     global player_pixel_x, player_pixel_y, is_moving
     
     if is_moving:
-
         # Move horizontally toward target
         if player_pixel_x < target_pixel_x:
-            player_pixel_x += move_speed  # Move right
-            if player_pixel_x > target_pixel_x:  # Don't overshoot
+            player_pixel_x += move_speed
+            if player_pixel_x > target_pixel_x:
                 player_pixel_x = target_pixel_x
         elif player_pixel_x > target_pixel_x:
-            player_pixel_x -= move_speed  # Move left
-            if player_pixel_x < target_pixel_x:  # Don't overshoot
+            player_pixel_x -= move_speed
+            if player_pixel_x < target_pixel_x:
                 player_pixel_x = target_pixel_x
         
         # Move vertically toward target
         if player_pixel_y < target_pixel_y:
-            player_pixel_y += move_speed  # Move down
-            if player_pixel_y > target_pixel_y:  # Don't overshoot
+            player_pixel_y += move_speed
+            if player_pixel_y > target_pixel_y:
                 player_pixel_y = target_pixel_y
         elif player_pixel_y > target_pixel_y:
-            player_pixel_y -= move_speed  # Move up
-            if player_pixel_y < target_pixel_y:  # Don't overshoot
+            player_pixel_y -= move_speed
+            if player_pixel_y < target_pixel_y:
                 player_pixel_y = target_pixel_y
         
         # Check if we've reached the target
         if player_pixel_x == target_pixel_x and player_pixel_y == target_pixel_y:
-            is_moving = False  # Stop animating
+            is_moving = False
         
-        # Redraw player at new position
+        # Redraw sprites
         draw_player()
         draw_enemy()
     
-    # Schedule next frame (~60 FPS = every 16 milliseconds)
+    # Update projectiles every frame
+    update_projectiles()
+    
+    # Schedule next frame
     root.after(16, update_player)
 
 #Function to Move Player
 def move_player(dx, dy):
-    global target_pixel_x, target_pixel_y, is_moving , move_speed
+    global target_pixel_x, target_pixel_y, is_moving, move_speed, player_facing
     
     # Don't allow new movement if already moving
     if is_moving:
         return
     
-    # Calculate current grid position
+    # Update player facing direction
+    if dy == -1:
+        player_facing = "up"
+    elif dy == 1:
+        player_facing = "down"
+    elif dx == -1:
+        player_facing = "left"
+    elif dx == 1:
+        player_facing = "right"
+    
     current_grid_x = player_pixel_x // TILE_SIZE
     current_grid_y = player_pixel_y // TILE_SIZE
     
-    # Calculate new grid position
+    #Calculate New Grid Position
     new_grid_x = current_grid_x + dx
     new_grid_y = current_grid_y + dy
 
@@ -198,55 +296,50 @@ def move_player(dx, dy):
         if target_tile_id in NON_WALKABLE_TILES:
             return
         
-        #Slow down on specific tiles
+        # Adjust speed based on tile
         if target_tile_id == 6:
-            move_speed = 4  # Slower on sand
+            move_speed = 4
         else:
-            move_speed = 8  # Normal speed
+            move_speed = 8
 
-        #Get the appropriate sound for this tile
+        #Get appropriate Sound for Tile
         sound_file = get_sound_for_tile(target_tile_id)
         
-        # Set the target position in pixels
+        #Set Target Position in Pixels
         target_pixel_x = new_grid_x * TILE_SIZE
         target_pixel_y = new_grid_y * TILE_SIZE
-        is_moving = True  # Start the animation
+        is_moving = True
         
-        #Play the tile-specific sound 
+        # Play Tile Specific Sound
         play_sfx(sound_file)
-        
+
 #Function to Handle Key Press and Movement Events
 def on_key_press(event):
     key = event.keysym.lower()
     
-    # WASD and Arrow key controls
+    # Movement controls
     if key == 'w' or key == 'up':
-        move_player(0, -1)  # Move up
+        move_player(0, -1)
     elif key == 's' or key == 'down':
-        move_player(0, 1)   # Move down
+        move_player(0, 1)
     elif key == 'a' or key == 'left':
-        move_player(-1, 0)  # Move left
+        move_player(-1, 0)
     elif key == 'd' or key == 'right':
-        move_player(1, 0)   # Move right
+        move_player(1, 0)
+    
+    # Shooting control
+    elif key == 'space':
+        shoot_money()
 
-#Draw Temporary Grid
-def draw_grid():
-    for x in range(0, WINDOW_WIDTH, TILE_SIZE):
-        canvas.create_line(x, 0, x, WINDOW_HEIGHT, fill="#333")
-    for y in range(0, WINDOW_HEIGHT, TILE_SIZE):
-        canvas.create_line(0, y, WINDOW_WIDTH, y, fill="#333")
-
-#Draw Map Function Based on Textures and Map Data
+#Draw Map Function
 def draw_map():
     canvas.delete("all")
     for row in range(len(map_data)):
         for col in range(len(map_data[row])):
             tile_id = map_data[row][col]
             image = tile_images[tile_id]
-
             x = col * TILE_SIZE
             y = row * TILE_SIZE
-
             canvas.create_image(x, y, anchor="nw", image=image)
 
 # Bind keyboard input
