@@ -15,6 +15,9 @@ ROWS = WINDOW_HEIGHT // TILE_SIZE
 #Check if sound is playing
 is_sound_playing = False
 
+#Non Walking Tiles
+NON_WALKABLE_TILES = [1 , 8 , 9]
+
 #Main Window
 root = tk.Tk()
 root.title("Ruine Hero")
@@ -190,6 +193,10 @@ def move_player(dx, dy):
     if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
         #Get the tile we're about to walk onto
         target_tile_id = map_data[new_grid_y][new_grid_x]
+
+        #Collision Detection for Non-Walkable Tiles
+        if target_tile_id in NON_WALKABLE_TILES:
+            return
         
         #Slow down on specific tiles
         if target_tile_id == 6:
