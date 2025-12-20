@@ -24,7 +24,7 @@ player_money = 5000
 #Main Window
 root = tk.Tk()
 root.title("Ruine Hero")
-root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT + 45}") #Extra space for stats panel
 root.resizable(False, False)
 
 #Canvas Setup
@@ -90,6 +90,43 @@ projectile_speed = 12  # Pixels per frame (faster than player)
 # Movement settings
 is_moving = False
 move_speed = 8
+
+#Stats Panel Setup (AFTER defining player stats variables!)
+stats_frame = tk.Frame(root, bg="#2b2b2b", height=100)
+stats_frame.pack(fill=tk.X)
+
+#Stats Labels
+player_health_label = tk.Label(
+    stats_frame,
+    text=f"Health: {player_current_health}/{player_max_health}",  # ✅ Fixed missing comma
+    font=("Arial", 14, "bold"),
+    bg="#2b2b2b",
+    fg="#ff4444"
+)
+player_health_label.pack(side=tk.LEFT, padx=20, pady=10)
+
+player_money_label = tk.Label(
+    stats_frame,
+    text=f"Money: ${player_money}",
+    font=("Arial", 14, "bold"),
+    bg="#2b2b2b",
+    fg="#44ff44"
+)
+player_money_label.pack(side=tk.LEFT, padx=20, pady=10)
+
+player_facing_label = tk.Label(
+    stats_frame,
+    text=f"Facing: {player_facing.upper()}",
+    font=("Arial", 12),
+    bg="#2b2b2b",
+    fg="#ffffff"
+)
+player_facing_label.pack(side=tk.LEFT, padx=20, pady=10)
+
+def update_stats_display():
+    player_health_label.config(text=f"Health: {player_current_health}/{player_max_health}")
+    player_money_label.config(text=f"Money: ${player_money}")
+    player_facing_label.config(text=f"Facing: {player_facing.upper()}")
 
 #Function to Draw Player
 def draw_player():
@@ -160,6 +197,7 @@ def shoot_money():
     # Deduct money cost
     player_money -= 100
     print(f"Shot money! Remaining: ${player_money}")
+    update_stats_display()
     
     # Calculate starting position (center of player sprite)
     start_x = player_pixel_x + TILE_SIZE // 2
@@ -279,6 +317,8 @@ def move_player(dx, dy):
         player_facing = "left"
     elif dx == 1:
         player_facing = "right"
+
+    update_stats_display()
     
     current_grid_x = player_pixel_x // TILE_SIZE
     current_grid_y = player_pixel_y // TILE_SIZE
@@ -349,6 +389,7 @@ root.bind("<KeyPress>", on_key_press)
 draw_map()
 draw_player()
 draw_enemy()
+update_stats_display()
 
 # Start the animation loop
 update_player()
