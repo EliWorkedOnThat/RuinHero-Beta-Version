@@ -48,6 +48,14 @@ tile_images = {
     9: tk.PhotoImage(file = "TexturePack/Basic Tiles/Orange_Tree.png")
 }
 
+#Tile Sound Mapping - Maps tile ID to sound file
+tile_sounds = {
+    0: "SoundEffects/GrassWalkSFX.mp3",
+    2: "SoundEffects/StoneWalkSFX.mp3",
+    6: "SoundEffects/SandWalkSFX.mp3"
+}
+
+#Load Player and Enemy Images
 player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
 enemy_image = tk.PhotoImage(file = "TexturePack/Enemies/Ghost_GIF.gif")
 
@@ -93,6 +101,20 @@ def draw_player():
         anchor="nw", 
         image=player_image
     )
+
+#Function to get tile ID at player position
+def get_tile_id_at_position(pixel_x, pixel_y):
+    grid_x = pixel_x // TILE_SIZE
+    grid_y = pixel_y // TILE_SIZE
+
+        # Check if position is within bounds
+    if 0 <= grid_x < COLS and 0 <= grid_y < ROWS:
+        return map_data[grid_y][grid_x]
+    return 0  # Default to grass if out of bounds
+
+#Function to get sound for current tile
+def get_sound_for_tile(tile_id):
+     return tile_sounds.get(tile_id, "SoundEffects/GrassWalkSFX.mp3")
 
 #Function to play SFX 
 def play_sfx(sound_file):
@@ -166,11 +188,19 @@ def move_player(dx, dy):
     
     # Check boundaries
     if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
+        #Get the tile we're about to walk onto
+        target_tile_id = map_data[new_grid_y][new_grid_x]
+        
+        #Get the appropriate sound for this tile
+        sound_file = get_sound_for_tile(target_tile_id)
+        
         # Set the target position in pixels
         target_pixel_x = new_grid_x * TILE_SIZE
         target_pixel_y = new_grid_y * TILE_SIZE
         is_moving = True  # Start the animation
-        play_sfx("SoundEffects/GrassWalkSFX.mp3") 
+        
+        #Play the tile-specific sound 
+        play_sfx(sound_file)
         
 #Function to Handle Key Press and Movement Events
 def on_key_press(event):
