@@ -79,9 +79,16 @@ player_current_health = 100
 #Enemy Stats
 enemy_sprite = None
 enemy_pixel_x = 15 * TILE_SIZE
-enemy_pixel_y = 10 * TILE_SIZE
+enemy_pixel_y = 11 * TILE_SIZE
 enemy_max_health = 50
 enemy_current_health = 50
+
+#Enemy Movement Variables
+enemy_moving_up = True
+enemy_move_timer = 0
+enemy_move_delay = 30 
+enemy_min_y = enemy_pixel_y - (2 * TILE_SIZE)  
+enemy_max_y = enemy_pixel_y 
 
 # Projectile System
 projectiles = []  # List to store all active projectiles
@@ -154,6 +161,34 @@ def draw_enemy():
         image=enemy_image
     )
 
+#Function to Update Enemy Movement
+def update_enemy_movement():
+    global enemy_pixel_y, enemy_moving_up, enemy_move_timer
+    
+    # Increment timer
+    enemy_move_timer += 1
+    
+    # Check if it's time to move
+    if enemy_move_timer >= enemy_move_delay:
+        enemy_move_timer = 0  # Reset timer
+        
+        # Move enemy
+        if enemy_moving_up:
+            enemy_pixel_y -= TILE_SIZE
+            
+            # Check if reached upper limit
+            if enemy_pixel_y <= enemy_min_y:
+                enemy_moving_up = False 
+        else:
+            enemy_pixel_y += TILE_SIZE
+            
+            # Check if reached lower limit
+            if enemy_pixel_y >= enemy_max_y:
+                enemy_moving_up = True  # Turn around
+        
+        # Redraw enemy at new position
+        draw_enemy()
+
 #Function to get tile ID at position
 def get_tile_id_at_position(pixel_x, pixel_y):
     grid_x = pixel_x // TILE_SIZE
@@ -185,10 +220,18 @@ def play_sfx(sound_file):
     thread = threading.Thread(target=play_in_thread, daemon=True)
     thread.start()
 
+#Fuction to play Money SFX
+def play_money_sfx():
+    def play_in_thread():
+        playsound("SoundEffects/MoneySFX.mp3")
+    
+    thread = threading.Thread(target=play_in_thread, daemon=True)
+    thread.start()
+
 #Function to Shoot Money Projectile
 def shoot_money():
     global player_money
-    
+
     # Check if player has money
     if player_money < 100:
         print("Not enough money to shoot!")
@@ -198,7 +241,8 @@ def shoot_money():
     player_money -= 100
     print(f"Shot money! Remaining: ${player_money}")
     update_stats_display()
-    
+    play_money_sfx()
+
     # Calculate starting position (center of player sprite)
     start_x = player_pixel_x + TILE_SIZE // 2
     start_y = player_pixel_y + TILE_SIZE // 2
@@ -297,6 +341,9 @@ def update_player():
     # Update projectiles every frame
     update_projectiles()
     
+    #Update Enemy Movement
+    update_enemy_movement()
+
     # Schedule next frame
     root.after(16, update_player)
 
