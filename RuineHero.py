@@ -82,6 +82,7 @@ enemy_pixel_x = 15 * TILE_SIZE
 enemy_pixel_y = 11 * TILE_SIZE
 enemy_max_health = 50
 enemy_current_health = 50
+enemy_alive = True
 
 #Enemy Movement Variables
 enemy_moving_up = True
@@ -165,6 +166,9 @@ def draw_enemy():
 def update_enemy_movement():
     global enemy_pixel_y, enemy_moving_up, enemy_move_timer
     
+    if not enemy_alive:
+        return
+
     # Increment timer
     enemy_move_timer += 1
     
@@ -188,6 +192,47 @@ def update_enemy_movement():
         
         # Redraw enemy at new position
         draw_enemy()
+
+#Function to Check Projectile Collision with Enemy
+def check_projectile_enemy_collision():
+    global enemy_current_health, projectiles, enemy_alive
+    
+    if not enemy_alive:
+        return
+
+    projectiles_to_remove = []
+    
+    for projectile in projectiles:
+        # Get projectile position
+        proj_x = projectile['x']
+        proj_y = projectile['y']
+        
+        # Check if projectile overlaps with enemy (simple box collision)
+        # Enemy is 32x32 pixels at (enemy_pixel_x, enemy_pixel_y)
+        if (enemy_pixel_x < proj_x < enemy_pixel_x + TILE_SIZE and
+            enemy_pixel_y < proj_y < enemy_pixel_y + TILE_SIZE):
+            
+            # HIT! Deal damage to enemy
+            enemy_current_health -= 10
+            if enemy_current_health <= 0:
+                enemy_alive = False
+                
+            print(f"Enemy hit! Health: {enemy_current_health}/{enemy_max_health}")
+            
+            # Remove the projectile
+            canvas.delete(projectile['sprite'])
+            projectiles_to_remove.append(projectile)
+            
+            # Check if enemy is dead
+            if enemy_current_health <= 0:
+                print("Enemy defeated!")
+                canvas.delete(enemy_sprite)
+                # Later: remove enemy, drop loot, etc.
+    
+    # Remove hit projectiles
+    for projectile in projectiles_to_remove:
+        if projectile in projectiles:
+            projectiles.remove(projectile)
 
 #Function to get tile ID at position
 def get_tile_id_at_position(pixel_x, pixel_y):
@@ -336,6 +381,8 @@ def update_player():
         
         # Redraw sprites
         draw_player()
+
+    if enemy_alive:
         draw_enemy()
     
     # Update projectiles every frame
@@ -343,7 +390,7 @@ def update_player():
     
     #Update Enemy Movement
     update_enemy_movement()
-
+    check_projectile_enemy_collision()
     # Schedule next frame
     root.after(16, update_player)
 
