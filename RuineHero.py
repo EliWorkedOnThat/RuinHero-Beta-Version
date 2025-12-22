@@ -3,6 +3,8 @@ import tkinter as tk
 from Maps import basic_map
 from playsound3 import playsound
 import threading
+import random
+from EnemySpawns import ENEMY_SPAWNS
 
 #Calculate Tile Grid and Size
 WINDOW_WIDTH = 800
@@ -24,15 +26,15 @@ player_money = 5000
 #Main Window
 root = tk.Tk()
 root.title("Ruine Hero")
-root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT + 45}") #Extra space for stats panel
+root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT + 45}")
 root.resizable(False, False)
 
 #Canvas Setup
 canvas = tk.Canvas(
     root,
-    width = WINDOW_WIDTH,
-    height = WINDOW_HEIGHT,
-    bg = "black",
+    width=WINDOW_WIDTH,
+    height=WINDOW_HEIGHT,
+    bg="black",
     highlightthickness=0
 )
 canvas.pack()
@@ -45,16 +47,16 @@ tile_images = {
     0: tk.PhotoImage(file="TexturePack/Basic Tiles/Grass.png"),
     1: tk.PhotoImage(file="TexturePack/Basic Tiles/Water.png"),
     2: tk.PhotoImage(file="TexturePack/Basic Tiles/Stone.png"),
-    3: tk.PhotoImage(file = "TexturePack/Ores/Diamond.png"),
-    4: tk.PhotoImage(file = "TexturePack/Ores/Gold.png"),
-    5: tk.PhotoImage(file = "TexturePack/Ores/Ruby.png"),
-    6: tk.PhotoImage(file = "TexturePack/Basic Tiles/Sand.png"),
-    7: tk.PhotoImage(file = "TexturePack/Basic Tiles/Bush.png"),
-    8: tk.PhotoImage(file = "TexturePack/Basic Tiles/Apple_Tree.png"),
-    9: tk.PhotoImage(file = "TexturePack/Basic Tiles/Orange_Tree.png")
+    3: tk.PhotoImage(file="TexturePack/Ores/Diamond.png"),
+    4: tk.PhotoImage(file="TexturePack/Ores/Gold.png"),
+    5: tk.PhotoImage(file="TexturePack/Ores/Ruby.png"),
+    6: tk.PhotoImage(file="TexturePack/Basic Tiles/Sand.png"),
+    7: tk.PhotoImage(file="TexturePack/Basic Tiles/Bush.png"),
+    8: tk.PhotoImage(file="TexturePack/Basic Tiles/Apple_Tree.png"),
+    9: tk.PhotoImage(file="TexturePack/Basic Tiles/Orange_Tree.png")
 }
 
-#Tile Sound Mapping - Maps tile ID to sound file
+#Tile Sound Mapping
 tile_sounds = {
     0: "SoundEffects/GrassWalkSFX.mp3",
     2: "SoundEffects/StoneWalkSFX.mp3",
@@ -62,9 +64,9 @@ tile_sounds = {
 }
 
 #Load Images
-player_image = tk.PhotoImage(file = "TexturePack/Hero/Hero.png")
-enemy_image = tk.PhotoImage(file = "TexturePack/Enemies/Ghost_GIF.gif")
-money_image = tk.PhotoImage(file = "TexturePack/Shootable/Money.png")
+player_image = tk.PhotoImage(file="TexturePack/Hero/Hero.png")
+enemy_image = tk.PhotoImage(file="TexturePack/Enemies/Ghost_GIF.gif")
+money_image = tk.PhotoImage(file="TexturePack/Shootable/Money.png")
 
 # Player Stats
 player_pixel_x = 5 * TILE_SIZE
@@ -72,41 +74,313 @@ player_pixel_y = 10 * TILE_SIZE
 target_pixel_x = player_pixel_x
 target_pixel_y = player_pixel_y
 player_sprite = None
-player_facing = "right"  # Track which direction player is facing
+player_facing = "right"
 player_max_health = 100
 player_current_health = 100
 
-#Enemy Stats
-enemy_sprite = None
-enemy_pixel_x = 15 * TILE_SIZE
-enemy_pixel_y = 11 * TILE_SIZE
-enemy_max_health = 50
-enemy_current_health = 50
-enemy_alive = True
-
-#Enemy Movement Variables
-enemy_moving_up = True
-enemy_move_timer = 0
-enemy_move_delay = 30 
-enemy_min_y = enemy_pixel_y - (2 * TILE_SIZE)  
-enemy_max_y = enemy_pixel_y 
-
 # Projectile System
-projectiles = []  # List to store all active projectiles
-projectile_speed = 12  # Pixels per frame (faster than player)
+projectiles = []
+projectile_speed = 12
 
 # Movement settings
 is_moving = False
 move_speed = 8
 
-#Stats Panel Setup (AFTER defining player stats variables!)
+
+# ==================== ENEMY CLASS ====================
+class Enemy:
+    
+    #Initialize Enemy
+    def __init__(self, x, y, enemy_type="ghost", max_health=50):
+       
+        self.grid_x = x
+        self.grid_y = y
+        self.pixel_x = x * TILE_SIZE
+        self.pixel_y = y * TILE_SIZE
+        self.enemy_type = enemy_type
+        self.max_health = max_health
+        self.current_health = max_health
+        self.alive = True
+        self.sprite = None
+        
+        # Movement properties
+        self.movement_pattern = "vertical"  # vertical, horizontal, chase, stationary, random
+        self.moving_up = True
+        self.moving_right = True
+        self.move_timer = 0
+        self.move_delay = 30  # Frames between moves
+        self.move_range = 2  # How many tiles to move
+        
+        # Store initial position for patrol
+        self.start_pixel_x = self.pixel_x
+        self.start_pixel_y = self.pixel_y
+        self.min_y = self.pixel_y - (self.move_range * TILE_SIZE)
+        self.max_y = self.pixel_y
+        self.min_x = self.pixel_x
+        self.max_x = self.pixel_x + (self.move_range * TILE_SIZE)
+        
+        # Get enemy image (you can add more enemy types here)
+        self.image = enemy_image
+        
+        # Create sprite
+        self.draw()
+    
+    def draw(self):
+        #Draw Enemy on Canvas
+        if self.sprite:
+            canvas.delete(self.sprite)
+        
+        if self.alive:
+            self.sprite = canvas.create_image(
+                self.pixel_x,
+                self.pixel_y,
+                anchor="nw",
+                image=self.image
+            )
+    
+    def update(self):
+        #Update enemy behaviour each frame
+        if not self.alive:
+            return
+        
+        # Update movement based on pattern
+        if self.movement_pattern == "vertical":
+            self.move_vertical()
+        elif self.movement_pattern == "horizontal":
+            self.move_horizontal()
+        elif self.movement_pattern == "chase":
+            self.chase_player()
+        elif self.movement_pattern == "random":
+            self.move_random()
+        elif self.movement_pattern == "stationary":
+            pass  # Don't move
+        
+        # Redraw
+        self.draw()
+    
+    def move_vertical(self):
+        #Patrol up and down
+        self.move_timer += 1
+        
+        if self.move_timer >= self.move_delay:
+            self.move_timer = 0
+            
+            if self.moving_up:
+                new_y = self.pixel_y - TILE_SIZE
+                if new_y >= self.min_y and self.can_move_to(self.pixel_x, new_y):
+                    self.pixel_y = new_y
+                else:
+                    self.moving_up = False
+            else:
+                new_y = self.pixel_y + TILE_SIZE
+                if new_y <= self.max_y and self.can_move_to(self.pixel_x, new_y):
+                    self.pixel_y = new_y
+                else:
+                    self.moving_up = True
+    
+    def move_horizontal(self):
+        #Patrol left and right
+        self.move_timer += 1
+        
+        if self.move_timer >= self.move_delay:
+            self.move_timer = 0
+            
+            if self.moving_right:
+                new_x = self.pixel_x + TILE_SIZE
+                if new_x <= self.max_x and self.can_move_to(new_x, self.pixel_y):
+                    self.pixel_x = new_x
+                else:
+                    self.moving_right = False
+            else:
+                new_x = self.pixel_x - TILE_SIZE
+                if new_x >= self.min_x and self.can_move_to(new_x, self.pixel_y):
+                    self.pixel_x = new_x
+                else:
+                    self.moving_right = True
+    
+    def chase_player(self):
+        #Chase the player (simple AI)
+        self.move_timer += 1
+        
+        if self.move_timer >= self.move_delay:
+            self.move_timer = 0
+            
+            # Calculate direction to player
+            dx = player_pixel_x - self.pixel_x
+            dy = player_pixel_y - self.pixel_y
+            
+            # Move towards player (one axis at a time)
+            if abs(dx) > abs(dy):
+                # Move horizontally
+                if dx > 0:
+                    new_x = self.pixel_x + TILE_SIZE
+                    if self.can_move_to(new_x, self.pixel_y):
+                        self.pixel_x = new_x
+                else:
+                    new_x = self.pixel_x - TILE_SIZE
+                    if self.can_move_to(new_x, self.pixel_y):
+                        self.pixel_x = new_x
+            else:
+                # Move vertically
+                if dy > 0:
+                    new_y = self.pixel_y + TILE_SIZE
+                    if self.can_move_to(self.pixel_x, new_y):
+                        self.pixel_y = new_y
+                else:
+                    new_y = self.pixel_y - TILE_SIZE
+                    if self.can_move_to(self.pixel_x, new_y):
+                        self.pixel_y = new_y
+    
+    def move_random(self):
+        # Move in random directions
+        self.move_timer += 1
+        
+        if self.move_timer >= self.move_delay:
+            self.move_timer = 0
+            
+            # Choose random direction
+            direction = random.choice(['up', 'down', 'left', 'right'])
+            
+            if direction == 'up':
+                new_pos = (self.pixel_x, self.pixel_y - TILE_SIZE)
+            elif direction == 'down':
+                new_pos = (self.pixel_x, self.pixel_y + TILE_SIZE)
+            elif direction == 'left':
+                new_pos = (self.pixel_x - TILE_SIZE, self.pixel_y)
+            else:  # right
+                new_pos = (self.pixel_x + TILE_SIZE, self.pixel_y)
+            
+            if self.can_move_to(new_pos[0], new_pos[1]):
+                self.pixel_x = new_pos[0]
+                self.pixel_y = new_pos[1]
+    
+    def can_move_to(self, pixel_x, pixel_y):
+        #Check if enemy can move to specified pixel position/ Tile
+        grid_x = pixel_x // TILE_SIZE
+        grid_y = pixel_y // TILE_SIZE
+        
+        # Check boundaries
+        if not (0 <= grid_x < COLS and 0 <= grid_y < ROWS):
+            return False
+        
+        # Check if tile is walkable
+        tile_id = map_data[grid_y][grid_x]
+        if tile_id in NON_WALKABLE_TILES:
+            return False
+        
+        return True
+    
+    def take_damage(self, damage):
+        #Enemy Takes Damage
+        if not self.alive:
+            return
+        
+        self.current_health -= damage
+        print(f"Enemy hit! Health: {self.current_health}/{self.max_health}")
+        
+        if self.current_health <= 0:
+            self.die()
+    
+    def die(self):
+        #Enemy Death Handling
+        self.alive = False
+        if self.sprite:
+            canvas.delete(self.sprite)
+        print(f"Enemy defeated at ({self.grid_x}, {self.grid_y})!")
+    
+    def get_bounds(self):
+        #Return enemy bounding box for collision detection
+        return {
+            'left': self.pixel_x,
+            'right': self.pixel_x + TILE_SIZE,
+            'top': self.pixel_y,
+            'bottom': self.pixel_y + TILE_SIZE
+        }
+
+
+# ==================== ENEMY MANAGER ====================
+class EnemyManager:
+    #Manages All Enemies in the Game
+    
+    def __init__(self):
+        self.enemies = []
+    
+    #Function to Add New Enemy To the Game
+    def add_enemy(self, x, y, enemy_type="ghost", max_health=50, movement_pattern="vertical", move_range=2):
+        enemy = Enemy(x, y, enemy_type, max_health)
+        enemy.movement_pattern = movement_pattern
+        enemy.move_range = move_range
+        
+        # Recalculate patrol bounds based on move_range
+        enemy.min_y = enemy.start_pixel_y - (move_range * TILE_SIZE)
+        enemy.max_y = enemy.start_pixel_y
+        enemy.min_x = enemy.start_pixel_x
+        enemy.max_x = enemy.start_pixel_x + (move_range * TILE_SIZE)
+        
+        self.enemies.append(enemy)
+        return enemy
+    
+    def load_enemies_for_map(self, map_name):
+        
+        # Clear any existing enemies first
+        self.clear_all()
+        
+        # Get enemy spawn data for this map
+        if map_name not in ENEMY_SPAWNS:
+            print(f"No enemy spawns defined for map: {map_name}")
+            return
+        
+        enemy_data_list = ENEMY_SPAWNS[map_name]
+        
+        # Spawn each enemy
+        for enemy_data in enemy_data_list:
+            new_enemy = self.add_enemy(
+                x=enemy_data["x"],
+                y=enemy_data["y"],
+                enemy_type=enemy_data.get("type", "ghost"),
+                max_health=enemy_data.get("health", 50),
+                movement_pattern=enemy_data.get("pattern", "vertical"),
+                move_range=enemy_data.get("move_range", 2)
+            )
+            
+            # Set custom move delay if specified
+            if "move_delay" in enemy_data:
+                new_enemy.move_delay = enemy_data["move_delay"]
+        
+        print(f"Loaded {len(enemy_data_list)} enemies for {map_name}")
+    
+    def update_all(self):
+        #Update all enemies
+        for enemy in self.enemies:
+            enemy.update()
+    
+    def remove_dead_enemies(self):
+        #Remove dead enemies from the list
+        self.enemies = [enemy for enemy in self.enemies if enemy.alive]
+    
+    def get_living_enemies(self):
+        #Return list of living enemies
+        return [enemy for enemy in self.enemies if enemy.alive]
+    
+    def clear_all(self):
+        #Clear all enemies from the game
+        for enemy in self.enemies:
+            if enemy.sprite:
+                canvas.delete(enemy.sprite)
+        self.enemies.clear()
+
+
+# Create enemy manager
+enemy_manager = EnemyManager()
+
+#Stats Panel Setup
 stats_frame = tk.Frame(root, bg="#2b2b2b", height=100)
 stats_frame.pack(fill=tk.X)
 
 #Stats Labels
 player_health_label = tk.Label(
     stats_frame,
-    text=f"Health: {player_current_health}/{player_max_health}",  # ✅ Fixed missing comma
+    text=f"Health: {player_current_health}/{player_max_health}",
     font=("Arial", 14, "bold"),
     bg="#2b2b2b",
     fg="#ff4444"
@@ -131,10 +405,22 @@ player_facing_label = tk.Label(
 )
 player_facing_label.pack(side=tk.LEFT, padx=20, pady=10)
 
+enemy_count_label = tk.Label(
+    stats_frame,
+    text=f"Enemies: {len(enemy_manager.get_living_enemies())}",
+    font=("Arial", 12),
+    bg="#2b2b2b",
+    fg="#ffaa44"
+)
+enemy_count_label.pack(side=tk.LEFT, padx=20, pady=10)
+
+
 def update_stats_display():
     player_health_label.config(text=f"Health: {player_current_health}/{player_max_health}")
     player_money_label.config(text=f"Money: ${player_money}")
     player_facing_label.config(text=f"Facing: {player_facing.upper()}")
+    enemy_count_label.config(text=f"Enemies: {len(enemy_manager.get_living_enemies())}")
+
 
 #Function to Draw Player
 def draw_player():
@@ -143,116 +429,68 @@ def draw_player():
         canvas.delete(player_sprite)
     
     player_sprite = canvas.create_image(
-        player_pixel_x, 
-        player_pixel_y, 
-        anchor="nw", 
+        player_pixel_x,
+        player_pixel_y,
+        anchor="nw",
         image=player_image
     )
 
-#Function to Draw Enemy
-def draw_enemy():
-    global enemy_sprite
-    if enemy_sprite:
-        canvas.delete(enemy_sprite)
-
-    enemy_sprite = canvas.create_image(
-        enemy_pixel_x,
-        enemy_pixel_y,
-        anchor="nw",
-        image=enemy_image
-    )
-
-#Function to Update Enemy Movement
-def update_enemy_movement():
-    global enemy_pixel_y, enemy_moving_up, enemy_move_timer
-    
-    if not enemy_alive:
-        return
-
-    # Increment timer
-    enemy_move_timer += 1
-    
-    # Check if it's time to move
-    if enemy_move_timer >= enemy_move_delay:
-        enemy_move_timer = 0  # Reset timer
-        
-        # Move enemy
-        if enemy_moving_up:
-            enemy_pixel_y -= TILE_SIZE
-            
-            # Check if reached upper limit
-            if enemy_pixel_y <= enemy_min_y:
-                enemy_moving_up = False 
-        else:
-            enemy_pixel_y += TILE_SIZE
-            
-            # Check if reached lower limit
-            if enemy_pixel_y >= enemy_max_y:
-                enemy_moving_up = True  # Turn around
-        
-        # Redraw enemy at new position
-        draw_enemy()
-
 #Function to Check Projectile Collision with Enemy
 def check_projectile_enemy_collision():
-    global enemy_current_health, projectiles, enemy_alive
+    global projectiles
     
-    if not enemy_alive:
-        return
-
     projectiles_to_remove = []
     
+    #Get Projectile Positions
     for projectile in projectiles:
-        # Get projectile position
         proj_x = projectile['x']
         proj_y = projectile['y']
         
-        # Check if projectile overlaps with enemy (simple box collision)
-        # Enemy is 32x32 pixels at (enemy_pixel_x, enemy_pixel_y)
-        if (enemy_pixel_x < proj_x < enemy_pixel_x + TILE_SIZE and
-            enemy_pixel_y < proj_y < enemy_pixel_y + TILE_SIZE):
+        # Check collision with all living enemies
+        for enemy in enemy_manager.get_living_enemies():
+            bounds = enemy.get_bounds()
             
-            # HIT! Deal damage to enemy
-            enemy_current_health -= 10
-            if enemy_current_health <= 0:
-                enemy_alive = False
+            if (bounds['left'] < proj_x < bounds['right'] and
+                bounds['top'] < proj_y < bounds['bottom']):
                 
-            print(f"Enemy hit! Health: {enemy_current_health}/{enemy_max_health}")
-            
-            # Remove the projectile
-            canvas.delete(projectile['sprite'])
-            projectiles_to_remove.append(projectile)
-            
-            # Check if enemy is dead
-            if enemy_current_health <= 0:
-                print("Enemy defeated!")
-                canvas.delete(enemy_sprite)
-                # Later: remove enemy, drop loot, etc.
+                # Hit!
+                enemy.take_damage(10)
+                
+                # Remove projectile
+                canvas.delete(projectile['sprite'])
+                projectiles_to_remove.append(projectile)
+                break  # Stop checking other enemies for this projectile
     
     # Remove hit projectiles
     for projectile in projectiles_to_remove:
         if projectile in projectiles:
             projectiles.remove(projectile)
+    
+    # Clean up dead enemies
+    enemy_manager.remove_dead_enemies()
+    update_stats_display()
+
 
 #Function to get tile ID at position
 def get_tile_id_at_position(pixel_x, pixel_y):
     grid_x = pixel_x // TILE_SIZE
     grid_y = pixel_y // TILE_SIZE
 
-        # Check if position is within bounds
     if 0 <= grid_x < COLS and 0 <= grid_y < ROWS:
         return map_data[grid_y][grid_x]
     return 0
 
+
 #Function to get sound for current tile
 def get_sound_for_tile(tile_id):
-     return tile_sounds.get(tile_id, "SoundEffects/GrassWalkSFX.mp3")
+    return tile_sounds.get(tile_id, "SoundEffects/GrassWalkSFX.mp3")
 
-#Function to play SFX 
+
+#Function to play SFX
 def play_sfx(sound_file):
     global is_sound_playing
     
-    #Dont play if already playing
+    #Dont play if sound is already playing
     if is_sound_playing:
         return
     
@@ -265,7 +503,7 @@ def play_sfx(sound_file):
     thread = threading.Thread(target=play_in_thread, daemon=True)
     thread.start()
 
-#Fuction to play Money SFX
+#Function to play Money SFX
 def play_money_sfx():
     def play_in_thread():
         playsound("SoundEffects/MoneySFX.mp3")
@@ -277,22 +515,22 @@ def play_money_sfx():
 def shoot_money():
     global player_money
 
-    # Check if player has money
+    #Check if enough money
     if player_money < 100:
         print("Not enough money to shoot!")
         return
     
-    # Deduct money cost
+    #Deduct Money
     player_money -= 100
     print(f"Shot money! Remaining: ${player_money}")
     update_stats_display()
     play_money_sfx()
 
-    # Calculate starting position (center of player sprite)
+    #Calculate Starting Position and Direction
     start_x = player_pixel_x + TILE_SIZE // 2
     start_y = player_pixel_y + TILE_SIZE // 2
     
-    # Set direction based on which way player is facing
+    #Determine Direction Based on Facing
     if player_facing == "up":
         dx, dy = 0, -1
     elif player_facing == "down":
@@ -302,16 +540,15 @@ def shoot_money():
     elif player_facing == "right":
         dx, dy = 1, 0
     else:
-        dx, dy = 1, 0  # Default to right
+        dx, dy = 1, 0
     
-    # Create projectile sprite
+    #Create Projectile Sprite
     projectile_sprite = canvas.create_image(
         start_x,
         start_y,
         image=money_image
     )
     
-    # Add to projectiles list
     projectile = {
         'sprite': projectile_sprite,
         'x': start_x,
@@ -321,6 +558,7 @@ def shoot_money():
     }
     projectiles.append(projectile)
 
+
 #Function to Update Projectiles
 def update_projectiles():
     global projectiles
@@ -328,34 +566,29 @@ def update_projectiles():
     projectiles_to_remove = []
     
     for projectile in projectiles:
-        # Move projectile
         projectile['x'] += projectile['dx'] * projectile_speed
         projectile['y'] += projectile['dy'] * projectile_speed
         
-        # Update sprite position
         canvas.coords(
             projectile['sprite'],
             projectile['x'],
             projectile['y']
         )
         
-        # Check if projectile is out of bounds
         if (projectile['x'] < 0 or projectile['x'] > WINDOW_WIDTH or
             projectile['y'] < 0 or projectile['y'] > WINDOW_HEIGHT):
-            # Mark for removal
             projectiles_to_remove.append(projectile)
     
-    # Remove out-of-bounds projectiles
     for projectile in projectiles_to_remove:
         canvas.delete(projectile['sprite'])
         projectiles.remove(projectile)
+
 
 #Function to Update Player Animation
 def update_player():
     global player_pixel_x, player_pixel_y, is_moving
     
     if is_moving:
-        # Move horizontally toward target
         if player_pixel_x < target_pixel_x:
             player_pixel_x += move_speed
             if player_pixel_x > target_pixel_x:
@@ -365,7 +598,6 @@ def update_player():
             if player_pixel_x < target_pixel_x:
                 player_pixel_x = target_pixel_x
         
-        # Move vertically toward target
         if player_pixel_y < target_pixel_y:
             player_pixel_y += move_speed
             if player_pixel_y > target_pixel_y:
@@ -375,34 +607,31 @@ def update_player():
             if player_pixel_y < target_pixel_y:
                 player_pixel_y = target_pixel_y
         
-        # Check if we've reached the target
         if player_pixel_x == target_pixel_x and player_pixel_y == target_pixel_y:
             is_moving = False
         
-        # Redraw sprites
         draw_player()
-
-    if enemy_alive:
-        draw_enemy()
     
-    # Update projectiles every frame
+    # Update all enemies
+    enemy_manager.update_all()
+    
+    # Update projectiles
     update_projectiles()
     
-    #Update Enemy Movement
-    update_enemy_movement()
+    # Check collisions
     check_projectile_enemy_collision()
+    
     # Schedule next frame
     root.after(16, update_player)
+
 
 #Function to Move Player
 def move_player(dx, dy):
     global target_pixel_x, target_pixel_y, is_moving, move_speed, player_facing
     
-    # Don't allow new movement if already moving
     if is_moving:
         return
     
-    # Update player facing direction
     if dy == -1:
         player_facing = "up"
     elif dy == 1:
@@ -421,37 +650,34 @@ def move_player(dx, dy):
     new_grid_x = current_grid_x + dx
     new_grid_y = current_grid_y + dy
 
-    # Check boundaries
     if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
-        #Get the tile we're about to walk onto
         target_tile_id = map_data[new_grid_y][new_grid_x]
 
-        #Collision Detection for Non-Walkable Tiles
         if target_tile_id in NON_WALKABLE_TILES:
             return
         
-        # Adjust speed based on tile
         if target_tile_id == 6:
             move_speed = 4
         else:
             move_speed = 8
 
-        #Get appropriate Sound for Tile
+        #Get Sound for Tile
         sound_file = get_sound_for_tile(target_tile_id)
         
-        #Set Target Position in Pixels
+        #Get Target Pixel Position
         target_pixel_x = new_grid_x * TILE_SIZE
         target_pixel_y = new_grid_y * TILE_SIZE
         is_moving = True
         
-        # Play Tile Specific Sound
+        #Play Tile Specific Sounds
         play_sfx(sound_file)
+
 
 #Function to Handle Key Press and Movement Events
 def on_key_press(event):
     key = event.keysym.lower()
     
-    # Movement controls
+    # Movement Controls
     if key == 'w' or key == 'up':
         move_player(0, -1)
     elif key == 's' or key == 'down':
@@ -460,10 +686,10 @@ def on_key_press(event):
         move_player(-1, 0)
     elif key == 'd' or key == 'right':
         move_player(1, 0)
-    
-    # Shooting control
+    #Shoot Money Controls
     elif key == 'space':
         shoot_money()
+
 
 #Draw Map Function
 def draw_map():
@@ -476,17 +702,21 @@ def draw_map():
             y = row * TILE_SIZE
             canvas.create_image(x, y, anchor="nw", image=image)
 
+
 # Bind keyboard input
 root.bind("<KeyPress>", on_key_press)
 
-#Draw Map
+# Draw Map
 draw_map()
 draw_player()
-draw_enemy()
 update_stats_display()
+
+# ==================== LOAD ENEMIES FROM CONFIG ====================
+# Load enemies for the basic_map from EnemySpawns.py
+enemy_manager.load_enemies_for_map("basic_map_enemies")
 
 # Start the animation loop
 update_player()
 
-#Main Loop
+# Main Loop
 root.mainloop()
