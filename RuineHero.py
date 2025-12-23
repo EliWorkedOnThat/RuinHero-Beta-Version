@@ -1,6 +1,6 @@
 #Imports
 import tkinter as tk
-from Maps import basic_map
+from Maps import basic_map , fountain_map , MAPS
 from playsound3 import playsound
 import threading
 import random
@@ -41,6 +41,87 @@ canvas.pack()
 
 #Mapping Tiles
 map_data = basic_map
+current_map_name = "basic_map"
+
+#Map Connections
+MAP_CONNECTIONS = {
+    "basic_map": {
+        "right": "fountain_map",
+        "left": None
+    },
+    "fountain_map": {
+        "right": None,
+        "left": "basic_map"
+    }
+}
+
+#Function to Transition Between Maps
+def transition_to_map(new_map_name, direction):
+    global map_data, current_map_name
+    global player_pixel_x, player_pixel_y, target_pixel_x, target_pixel_y
+    global is_moving, projectiles
+    
+    # Check if map exists
+    if new_map_name not in MAPS:
+        print(f"Error: Map '{new_map_name}' not found!")
+        return
+    
+    print(f"Transitioning to {new_map_name} from {direction}...")
+    
+    # Clear all projectiles
+    for projectile in projectiles:
+        canvas.delete(projectile['sprite'])
+    projectiles.clear()
+    
+    # Clear all enemies
+    enemy_manager.clear_all()
+    
+    # Load new map
+    map_data = MAPS[new_map_name]
+    current_map_name = new_map_name
+    
+    # Set player position based on direction of entry
+    current_grid_y = player_pixel_y // TILE_SIZE  # Keep same Y position
+    
+    if direction == "right":
+        # Coming from the left, spawn on leftmost side
+        player_pixel_x = 1 * TILE_SIZE  # Column 1
+    elif direction == "left":
+        # Coming from the right, spawn on rightmost side
+        player_pixel_x = (COLS - 2) * TILE_SIZE  # Column 23
+    
+    player_pixel_y = current_grid_y * TILE_SIZE
+    
+    # Make sure spawn position is valid (not in water/trees)
+    spawn_grid_x = player_pixel_x // TILE_SIZE
+    spawn_grid_y = player_pixel_y // TILE_SIZE
+    spawn_tile = map_data[spawn_grid_y][spawn_grid_x]
+    
+    # If spawn tile is not walkable, find nearest walkable tile
+    if spawn_tile in NON_WALKABLE_TILES:
+        # Try moving down until we find walkable ground
+        for y_offset in range(ROWS):
+            test_y = (spawn_grid_y + y_offset) % ROWS
+            test_tile = map_data[test_y][spawn_grid_x]
+            if test_tile not in NON_WALKABLE_TILES:
+                player_pixel_y = test_y * TILE_SIZE
+                break
+    
+    target_pixel_x = player_pixel_x
+    target_pixel_y = player_pixel_y
+    is_moving = False
+    
+    # Redraw everything
+    draw_map()
+    draw_player()
+    
+    # Load enemies for new map
+    enemy_manager.load_enemies_for_map(new_map_name)
+    
+    update_stats_display()
+    
+    print(f"Transition complete! Now in '{new_map_name}'")
+
 
 #Corresponding Tile to ID
 tile_images = {
@@ -632,6 +713,7 @@ def move_player(dx, dy):
     if is_moving:
         return
     
+    # Update player facing direction
     if dy == -1:
         player_facing = "up"
     elif dy == 1:
@@ -650,27 +732,51 @@ def move_player(dx, dy):
     new_grid_x = current_grid_x + dx
     new_grid_y = current_grid_y + dy
 
-    if 0 <= new_grid_x < COLS and 0 <= new_grid_y < ROWS:
-        target_tile_id = map_data[new_grid_y][new_grid_x]
+    #Check if trying to move beyond RIGHT edge
+    if new_grid_x >= COLS:
+        if current_map_name in MAP_CONNECTIONS:
+            next_map = MAP_CONNECTIONS[current_map_name].get("right")
+            if next_map:
+                transition_to_map(next_map, "right")
+                return
+        return  # Block movement if no map connection
+    
+    #Check if trying to move beyond LEFT edge
+    if new_grid_x < 0:
+        if current_map_name in MAP_CONNECTIONS:
+            next_map = MAP_CONNECTIONS[current_map_name].get("left")
+            if next_map:
+                transition_to_map(next_map, "left")
+                return
+        return  # Block movement if no map connection
 
-        if target_tile_id in NON_WALKABLE_TILES:
-            return
-        
-        if target_tile_id == 6:
-            move_speed = 4
-        else:
-            move_speed = 8
+    #Check other boundaries (top/bottom)
+    if not (0 <= new_grid_y < ROWS):
+        return
 
-        #Get Sound for Tile
-        sound_file = get_sound_for_tile(target_tile_id)
-        
-        #Get Target Pixel Position
-        target_pixel_x = new_grid_x * TILE_SIZE
-        target_pixel_y = new_grid_y * TILE_SIZE
-        is_moving = True
-        
-        #Play Tile Specific Sounds
-        play_sfx(sound_file)
+    #Get the tile we're about to walk onto
+    target_tile_id = map_data[new_grid_y][new_grid_x]
+
+    #Collision Detection for Non-Walkable Tiles
+    if target_tile_id in NON_WALKABLE_TILES:
+        return
+    
+    #Adjust speed based on tile
+    if target_tile_id == 6:
+        move_speed = 4
+    else:
+        move_speed = 8
+
+    #Get appropriate Sound for Tile
+    sound_file = get_sound_for_tile(target_tile_id)
+    
+    #Set Target Position in Pixels
+    target_pixel_x = new_grid_x * TILE_SIZE
+    target_pixel_y = new_grid_y * TILE_SIZE
+    is_moving = True
+    
+    #Play Tile Specific Sound
+    play_sfx(sound_file)
 
 
 #Function to Handle Key Press and Movement Events
@@ -706,14 +812,14 @@ def draw_map():
 # Bind keyboard input
 root.bind("<KeyPress>", on_key_press)
 
+#Load Enemies From Configuration
+#Enemies for the basic_map from EnemySpawns.py
+enemy_manager.load_enemies_for_map("basic_map")
+
 # Draw Map
 draw_map()
 draw_player()
 update_stats_display()
-
-# ==================== LOAD ENEMIES FROM CONFIG ====================
-# Load enemies for the basic_map from EnemySpawns.py
-enemy_manager.load_enemies_for_map("basic_map_enemies")
 
 # Start the animation loop
 update_player()
