@@ -61,45 +61,45 @@ def transition_to_map(new_map_name, direction):
     global player_pixel_x, player_pixel_y, target_pixel_x, target_pixel_y
     global is_moving, projectiles
     
-    # Check if map exists
+    #Check if map exists
     if new_map_name not in MAPS:
         print(f"Error: Map '{new_map_name}' not found!")
         return
     
     print(f"Transitioning to {new_map_name} from {direction}...")
     
-    # Clear all projectiles
+    #Clear all projectiles
     for projectile in projectiles:
         canvas.delete(projectile['sprite'])
     projectiles.clear()
     
-    # Clear all enemies
+    #Clear all enemies
     enemy_manager.clear_all()
     
-    # Load new map
+    #Load new map
     map_data = MAPS[new_map_name]
     current_map_name = new_map_name
     
-    # Set player position based on direction of entry
+    #Set player position based on direction of entry
     current_grid_y = player_pixel_y // TILE_SIZE  # Keep same Y position
     
     if direction == "right":
-        # Coming from the left, spawn on leftmost side
+        #Coming from the left, spawn on leftmost side
         player_pixel_x = 1 * TILE_SIZE  # Column 1
     elif direction == "left":
-        # Coming from the right, spawn on rightmost side
+        #Coming from the right, spawn on rightmost side
         player_pixel_x = (COLS - 2) * TILE_SIZE  # Column 23
     
     player_pixel_y = current_grid_y * TILE_SIZE
     
-    # Make sure spawn position is valid (not in water/trees)
+    #Make sure spawn position is valid (not in water/trees)
     spawn_grid_x = player_pixel_x // TILE_SIZE
     spawn_grid_y = player_pixel_y // TILE_SIZE
     spawn_tile = map_data[spawn_grid_y][spawn_grid_x]
     
-    # If spawn tile is not walkable, find nearest walkable tile
+    #If spawn tile is not walkable, find nearest walkable tile
     if spawn_tile in NON_WALKABLE_TILES:
-        # Try moving down until we find walkable ground
+        #Try moving down until we find walkable ground
         for y_offset in range(ROWS):
             test_y = (spawn_grid_y + y_offset) % ROWS
             test_tile = map_data[test_y][spawn_grid_x]
@@ -111,11 +111,11 @@ def transition_to_map(new_map_name, direction):
     target_pixel_y = player_pixel_y
     is_moving = False
     
-    # Redraw everything
+    #Redraw everything
     draw_map()
     draw_player()
     
-    # Load enemies for new map
+    #Load enemies for new map
     enemy_manager.load_enemies_for_map(new_map_name)
     
     update_stats_display()
@@ -148,8 +148,9 @@ tile_sounds = {
 player_image = tk.PhotoImage(file="TexturePack/Hero/Hero.png")
 enemy_image = tk.PhotoImage(file="TexturePack/Enemies/Ghost_GIF.gif")
 money_image = tk.PhotoImage(file="TexturePack/Shootable/Money.png")
+ninja_image = tk.PhotoImage(file="TexturePack/Enemies/Ninja.png")
 
-# Player Stats
+#Player Stats
 player_pixel_x = 5 * TILE_SIZE
 player_pixel_y = 10 * TILE_SIZE
 target_pixel_x = player_pixel_x
@@ -159,11 +160,11 @@ player_facing = "right"
 player_max_health = 100
 player_current_health = 100
 
-# Projectile System
+#Projectile System
 projectiles = []
 projectile_speed = 12
 
-# Movement settings
+#Movement settings
 is_moving = False
 move_speed = 8
 
@@ -184,15 +185,15 @@ class Enemy:
         self.alive = True
         self.sprite = None
         
-        # Movement properties
-        self.movement_pattern = "vertical"  # vertical, horizontal, chase, stationary, random
+        #Movement properties
+        self.movement_pattern = "vertical"  #vertical, horizontal, chase, stationary, random
         self.moving_up = True
         self.moving_right = True
         self.move_timer = 0
-        self.move_delay = 30  # Frames between moves
-        self.move_range = 2  # How many tiles to move
+        self.move_delay = 30  #Frames between moves
+        self.move_range = 2  #How many tiles to move
         
-        # Store initial position for patrol
+        #Store initial position for patrol
         self.start_pixel_x = self.pixel_x
         self.start_pixel_y = self.pixel_y
         self.min_y = self.pixel_y - (self.move_range * TILE_SIZE)
@@ -200,10 +201,15 @@ class Enemy:
         self.min_x = self.pixel_x
         self.max_x = self.pixel_x + (self.move_range * TILE_SIZE)
         
-        # Get enemy image (you can add more enemy types here)
-        self.image = enemy_image
+        #Get enemy image based on type
+        if self.enemy_type == "ninja":
+            self.image = ninja_image
+        elif self.enemy_type == "ghost":
+            self.image = enemy_image
+        else:
+            self.image = enemy_image
         
-        # Create sprite
+        #Create sprite
         self.draw()
     
     def draw(self):
@@ -224,7 +230,7 @@ class Enemy:
         if not self.alive:
             return
         
-        # Update movement based on pattern
+        #Update movement based on pattern
         if self.movement_pattern == "vertical":
             self.move_vertical()
         elif self.movement_pattern == "horizontal":
@@ -234,9 +240,9 @@ class Enemy:
         elif self.movement_pattern == "random":
             self.move_random()
         elif self.movement_pattern == "stationary":
-            pass  # Don't move
+            pass  #Don't move
         
-        # Redraw
+        #Redraw
         self.draw()
     
     def move_vertical(self):
@@ -286,13 +292,13 @@ class Enemy:
         if self.move_timer >= self.move_delay:
             self.move_timer = 0
             
-            # Calculate direction to player
+            #Calculate direction to player
             dx = player_pixel_x - self.pixel_x
             dy = player_pixel_y - self.pixel_y
             
-            # Move towards player (one axis at a time)
+            #Move towards player (one axis at a time)
             if abs(dx) > abs(dy):
-                # Move horizontally
+                #Move horizontally
                 if dx > 0:
                     new_x = self.pixel_x + TILE_SIZE
                     if self.can_move_to(new_x, self.pixel_y):
@@ -302,7 +308,7 @@ class Enemy:
                     if self.can_move_to(new_x, self.pixel_y):
                         self.pixel_x = new_x
             else:
-                # Move vertically
+                #Move vertically
                 if dy > 0:
                     new_y = self.pixel_y + TILE_SIZE
                     if self.can_move_to(self.pixel_x, new_y):
@@ -313,13 +319,13 @@ class Enemy:
                         self.pixel_y = new_y
     
     def move_random(self):
-        # Move in random directions
+        #Move in random directions
         self.move_timer += 1
         
         if self.move_timer >= self.move_delay:
             self.move_timer = 0
             
-            # Choose random direction
+            #Choose random direction
             direction = random.choice(['up', 'down', 'left', 'right'])
             
             if direction == 'up':
@@ -328,7 +334,7 @@ class Enemy:
                 new_pos = (self.pixel_x, self.pixel_y + TILE_SIZE)
             elif direction == 'left':
                 new_pos = (self.pixel_x - TILE_SIZE, self.pixel_y)
-            else:  # right
+            else:  #right
                 new_pos = (self.pixel_x + TILE_SIZE, self.pixel_y)
             
             if self.can_move_to(new_pos[0], new_pos[1]):
@@ -340,11 +346,11 @@ class Enemy:
         grid_x = pixel_x // TILE_SIZE
         grid_y = pixel_y // TILE_SIZE
         
-        # Check boundaries
+        #Check boundaries
         if not (0 <= grid_x < COLS and 0 <= grid_y < ROWS):
             return False
         
-        # Check if tile is walkable
+        #Check if tile is walkable
         tile_id = map_data[grid_y][grid_x]
         if tile_id in NON_WALKABLE_TILES:
             return False
@@ -392,7 +398,7 @@ class EnemyManager:
         enemy.movement_pattern = movement_pattern
         enemy.move_range = move_range
         
-        # Recalculate patrol bounds based on move_range
+        #Recalculate patrol bounds based on move_range
         enemy.min_y = enemy.start_pixel_y - (move_range * TILE_SIZE)
         enemy.max_y = enemy.start_pixel_y
         enemy.min_x = enemy.start_pixel_x
@@ -403,17 +409,17 @@ class EnemyManager:
     
     def load_enemies_for_map(self, map_name):
         
-        # Clear any existing enemies first
+        #Clear any existing enemies first
         self.clear_all()
         
-        # Get enemy spawn data for this map
+        #Get enemy spawn data for this map
         if map_name not in ENEMY_SPAWNS:
             print(f"No enemy spawns defined for map: {map_name}")
             return
         
         enemy_data_list = ENEMY_SPAWNS[map_name]
         
-        # Spawn each enemy
+        #Spawn each enemy
         for enemy_data in enemy_data_list:
             new_enemy = self.add_enemy(
                 x=enemy_data["x"],
@@ -424,7 +430,7 @@ class EnemyManager:
                 move_range=enemy_data.get("move_range", 2)
             )
             
-            # Set custom move delay if specified
+            #Set custom move delay if specified
             if "move_delay" in enemy_data:
                 new_enemy.move_delay = enemy_data["move_delay"]
         
@@ -451,7 +457,7 @@ class EnemyManager:
         self.enemies.clear()
 
 
-# Create enemy manager
+#Create enemy manager
 enemy_manager = EnemyManager()
 
 #Stats Panel Setup
@@ -527,22 +533,22 @@ def check_projectile_enemy_collision():
         proj_x = projectile['x']
         proj_y = projectile['y']
         
-        # Check collision with all living enemies
+        #Check collision with all living enemies
         for enemy in enemy_manager.get_living_enemies():
             bounds = enemy.get_bounds()
             
             if (bounds['left'] < proj_x < bounds['right'] and
                 bounds['top'] < proj_y < bounds['bottom']):
                 
-                # Hit!
+                #Hit!
                 enemy.take_damage(10)
                 
-                # Remove projectile
+                #Remove projectile
                 canvas.delete(projectile['sprite'])
                 projectiles_to_remove.append(projectile)
                 break  # Stop checking other enemies for this projectile
     
-    # Remove hit projectiles
+    #Remove hit projectiles
     for projectile in projectiles_to_remove:
         if projectile in projectiles:
             projectiles.remove(projectile)
