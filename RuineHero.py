@@ -1,6 +1,6 @@
 #Imports
 import tkinter as tk
-from Maps import basic_map , fountain_map , MAPS
+from Maps import basic_map , fountain_map , dessert_map , MAPS
 from playsound3 import playsound
 import threading
 import random
@@ -47,11 +47,18 @@ current_map_name = "basic_map"
 MAP_CONNECTIONS = {
     "basic_map": {
         "right": "fountain_map",
-        "left": None
+        "left": None,
+        "up": "dessert_map"
     },
     "fountain_map": {
         "right": None,
         "left": "basic_map"
+    },
+    "dessert_map": {
+        "down": "basic_map", 
+        "up": None,
+        "left": None,
+        "right": None
     }
 }
 
@@ -82,15 +89,23 @@ def transition_to_map(new_map_name, direction):
     
     #Set player position based on direction of entry
     current_grid_y = player_pixel_y // TILE_SIZE  # Keep same Y position
-    
+    current_grid_x = player_pixel_x // TILE_SIZE  # Keep same X position for vertical transitions
+
     if direction == "right":
         #Coming from the left, spawn on leftmost side
         player_pixel_x = 1 * TILE_SIZE  # Column 1
     elif direction == "left":
         #Coming from the right, spawn on rightmost side
         player_pixel_x = (COLS - 2) * TILE_SIZE  # Column 23
-    
-    player_pixel_y = current_grid_y * TILE_SIZE
+    elif direction == "up":
+        #Coming from below, spawn at bottom
+        player_pixel_x = current_grid_x * TILE_SIZE
+        player_pixel_y = (ROWS - 2) * TILE_SIZE
+    elif direction == "down":
+        #Coming from above, spawn at top
+        player_pixel_x = current_grid_x * TILE_SIZE
+        player_pixel_y = 1 * TILE_SIZE
+        player_pixel_y = current_grid_y * TILE_SIZE
     
     #Make sure spawn position is valid (not in water/trees)
     spawn_grid_x = player_pixel_x // TILE_SIZE
@@ -757,8 +772,22 @@ def move_player(dx, dy):
         return  # Block movement if no map connection
 
     #Check other boundaries (top/bottom)
-    if not (0 <= new_grid_y < ROWS):
-        return
+    if new_grid_y < 0:
+        if current_map_name in MAP_CONNECTIONS:
+            next_map = MAP_CONNECTIONS[current_map_name].get("up")
+            if next_map:
+                transition_to_map(next_map, "up")
+                return
+        return  # Block movement if no map connection
+
+    #Check if trying to move beyond BOTTOM edge
+    if new_grid_y >= ROWS:
+        if current_map_name in MAP_CONNECTIONS:
+            next_map = MAP_CONNECTIONS[current_map_name].get("down")
+            if next_map:
+                transition_to_map(next_map, "down")
+                return
+        return  # Block movement if no map connection
 
     #Get the tile we're about to walk onto
     target_tile_id = map_data[new_grid_y][new_grid_x]
